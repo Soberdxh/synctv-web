@@ -22,7 +22,7 @@ import type { options } from "@/components/Player.vue";
 import RoomInfo from "@/components/cinema/RoomInfo.vue";
 import MovieList from "@/components/cinema/MovieList.vue";
 import MoviePush from "@/components/cinema/MoviePush.vue";
-import { RoomMemberPermission } from "@/types/Room";
+import { RoomMemberPermission, MEMBER_ROLE } from "@/types/Room";
 import artplayerPluginAss from "@/plugins/artplayer-plugin-ass";
 import { newSyncPlugin } from "@/plugins/sync";
 import artplayerPluginMediaControl from "@/plugins/control";
@@ -128,6 +128,14 @@ const sendMsg = (msg: string) => {
   });
 };
 
+// 修复0: 计算当前用户是否有控制播放的权限(与服务器端逻辑一致)
+// 房主/管理员直通,普通成员检查 PermissionSetCurrentStatus 权限位
+const canControl = computed(() => {
+  if (!myInfo.value) return false;
+  if (myInfo.value.role >= MEMBER_ROLE.Admin) return true;
+  return hasMemberPermission(myInfo.value.permissions, RoomMemberPermission.PermissionSetCurrentStatus) === true;
+});
+
 const playerOption = computed<options>(() => {
   if (!room.currentMovie.base!.url) {
     return {
@@ -154,7 +162,7 @@ const playerOption = computed<options>(() => {
         }
       }),
       // WARN: room.currentStatus 变了会导致重载
-      newSyncPlugin(sendElement, room.currentStatus, () => room.currentExpireId),
+      newSyncPlugin(sendElement, room.currentStatus, () => room.currentExpireId, canControl.value),
       artplayerPluginMediaControl(),
     ]
   };
